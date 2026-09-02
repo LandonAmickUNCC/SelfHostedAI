@@ -105,7 +105,8 @@ RUN mkdir -p data logs services/cache/search
 # update them) silently fails on EPERM, breaking skill extraction,
 # prefs persistence, mail attachments, etc.
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+COPY docker/start-vllm.sh /app/docker/start-vllm.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh /app/docker/start-vllm.sh
 
 EXPOSE 7000
 

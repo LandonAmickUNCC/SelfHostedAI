@@ -96,7 +96,7 @@ repair_bind_mount_ownership() {
 # Repair image-owned writable paths without walking into bind-mounted host
 # trees, then repair the app-owned mount roots separately.
 repair_app_tree_ownership
-for dir in /app/data /app/logs /app/.ssh /app/.cache/huggingface /app/.local; do
+for dir in /app/data /app/logs /app/.ssh /app/.cache /app/.local; do
     repair_bind_mount_ownership "$dir"
 done
 
@@ -139,6 +139,19 @@ export PATH="/app/.local/bin:$PATH"
 # setup.py is idempotent — skips auth.json / .env if they already exist.
 # || true so a setup failure never prevents the container from starting.
 "$GOSU_BIN" "$ODY_USER" "$PYTHON_BIN" /app/setup.py || true
+
+# Start the local Qwen/vLLM server in the background.
+# The server runs as the same unprivileged user as Odysseus and uses the
+# persistent Cookbook-installed vLLM under /app/.local.
+#
+# The vLLM process is intentionally separate from uvicorn so the existing
+# Odysseus entrypoint and signal handling remain unchanged.
+if [ "${ODYSSEUS_AUTOSTART_VLLM:-true}" = "true" ]; then
+    echo "Starting automatic local vLLM server..."
+    "$GOSU_BIN" "$ODY_USER" /app/docker/start-vllm.sh         >> /app/logs/vllm.log 2>&1 &
+    VLLM_PID=$!
+    echo "vLLM background PID: $VLLM_PID"
+fi
 
 # Drop root and run the actual app. `gosu` is preferred over `su` /
 # `sudo` because it cleans up the process tree (no extra shell layer)
